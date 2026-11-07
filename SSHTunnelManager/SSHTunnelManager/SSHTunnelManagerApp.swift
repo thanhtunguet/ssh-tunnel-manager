@@ -38,7 +38,25 @@ struct SSHTunnelManagerApp: App {
 
 @MainActor
 class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, UNUserNotificationCenterDelegate {
-    let tunnelManager = TunnelManager()
+    private let instanceLock: SingleInstanceLock
+    let tunnelManager: TunnelManager
+
+    override init() {
+        do {
+            guard let lock = try SingleInstanceLock.acquire() else {
+                // Exit before creating TunnelManager, registering cleanup handlers,
+                // or adding another menu bar item. Never clean up the live instance.
+                exit(EXIT_SUCCESS)
+            }
+            instanceLock = lock
+        } catch {
+            fputs("SSH Tunnel Manager: unable to acquire single-instance lock: \(error)\n", stderr)
+            exit(EXIT_FAILURE)
+        }
+
+        tunnelManager = TunnelManager()
+        super.init()
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Make app accessory - no dock icon, proper focus handling
